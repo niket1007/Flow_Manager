@@ -13,6 +13,33 @@ This service allows you to define complex workflows in a JSON format, where each
 * **Task-Level Error Handling:** Any exception raised *within* an individual task (e.g., a database connection failure) is caught, logged, and will immediately halt the flow, returning a 500 error.
 * **Centralised Error Handling:** Uses a custom exception class (`CustomException`) and a FastAPI handler to return clear, standardised JSON error messages for both bad requests (400) and server errors (500).
 
+## Design Explained
+
+This section answers the core design questions from the project brief.
+
+### 1. How do the tasks depend on one another?
+
+Task dependencies are not hardcoded. They are dynamically defined by the **`conditions` array** in the JSON payload.
+
+Each object in the `conditions` array links a `source_task` to a `target_task_success` and a `target_task_failure`. The `FlowManager` uses this information to build an `execution_dict` at runtime, which maps out the exact execution path and dependencies for that specific flow.
+
+### 2. How is the success or failure of a task evaluated?
+
+The evaluation is a direct string comparison:
+
+1.  **Task Return Value:** Each task function (e.g., `task1`, `task2`) is defined to return a simple string, such as `"success"`, upon completion.
+2.  **Condition Outcome:** The `conditions` array specifies the *expected* string result for that task in its `outcome` field (e.g., `"outcome": "success"`).
+3.  **Evaluation:** The `FlowManager` compares the actual string returned by the task (`result`) against the `outcome` string from the condition.
+
+### 3. What happens if a task fails or succeeds?
+
+The flow proceeds based on the result of the string comparison:
+
+* **If the task's result *matches* the expected `outcome`** (a "success"): The `FlowManager` updates the next task to be the one specified in the `target_task_success` field.
+* **If the task's result *does not match* the expected `outcome`** (a "failure"): The `FlowManager` updates the next task to be the one specified in the `target_task_failure` field.
+
+If this new task value is `"end"`, the flow's `while` loop terminates, and the execution is complete.
+
 ## Project Structure
 ```
 Flow_Manager/
